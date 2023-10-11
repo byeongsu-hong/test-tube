@@ -16,17 +16,17 @@ const CHAIN_ID: &str = "osmosis-1";
 const DEFAULT_GAS_ADJUSTMENT: f64 = 1.2;
 
 #[derive(Debug, PartialEq)]
-pub struct OsmosisTestApp {
+pub struct NeutronTestApp {
     inner: BaseApp,
 }
 
-impl Default for OsmosisTestApp {
+impl Default for NeutronTestApp {
     fn default() -> Self {
-        OsmosisTestApp::new()
+        NeutronTestApp::new()
     }
 }
 
-impl OsmosisTestApp {
+impl NeutronTestApp {
     pub fn new() -> Self {
         Self {
             inner: BaseApp::new(
@@ -111,7 +111,7 @@ impl OsmosisTestApp {
     }
 }
 
-impl<'a> Runner<'a> for OsmosisTestApp {
+impl<'a> Runner<'a> for NeutronTestApp {
     fn execute_multiple<M, R>(
         &self,
         msgs: &[(M, &str)],
@@ -146,34 +146,19 @@ impl<'a> Runner<'a> for OsmosisTestApp {
 
 #[cfg(test)]
 mod tests {
-    use osmosis_std::types::cosmos::bank::v1beta1::QueryAllBalancesResponse;
-    use prost::Message;
     use std::option::Option::None;
 
-    use cosmrs::Any;
-    use cosmwasm_std::{attr, coins, Coin};
+    use cosmwasm_std::{coins, Coin};
     use osmosis_std::types::cosmos::bank::v1beta1::QueryAllBalancesRequest;
 
-    use osmosis_std::types::osmosis::gamm::v1beta1::QueryTotalSharesRequest;
-    use osmosis_std::types::osmosis::lockup::{
-        self, MsgForceUnlock, MsgForceUnlockResponse, MsgLockTokens, MsgLockTokensResponse,
-    };
-    use osmosis_std::types::osmosis::tokenfactory::v1beta1::{
-        MsgCreateDenom, MsgCreateDenomResponse, QueryParamsRequest, QueryParamsResponse,
-    };
-
-    use crate::module::Gamm;
-    use crate::module::Wasm;
-    use crate::runner::app::OsmosisTestApp;
-    use crate::Bank;
+    use crate::runner::app::NeutronTestApp;
     use test_tube::account::{Account, FeeSetting};
     use test_tube::module::Module;
-    use test_tube::ExecuteResponse;
-    use test_tube::{runner::*, RunnerError};
+    use test_tube::{Bank, Wasm};
 
     #[test]
     fn test_init_accounts() {
-        let app = OsmosisTestApp::default();
+        let app = NeutronTestApp::default();
         let accounts = app
             .init_accounts(&coins(100_000_000_000, "uosmo"), 3)
             .unwrap();
@@ -186,7 +171,7 @@ mod tests {
 
     #[test]
     fn test_get_and_set_block_timestamp() {
-        let app = OsmosisTestApp::default();
+        let app = NeutronTestApp::default();
 
         let block_time_nanos = app.get_block_time_nanos();
         let block_time_seconds = app.get_block_time_seconds();
@@ -202,7 +187,7 @@ mod tests {
 
     #[test]
     fn test_get_block_height() {
-        let app = OsmosisTestApp::default();
+        let app = NeutronTestApp::default();
 
         assert_eq!(app.get_block_height(), 1i64);
 
@@ -212,135 +197,10 @@ mod tests {
     }
 
     #[test]
-    fn test_execute() {
-        let app = OsmosisTestApp::default();
-
-        let acc = app
-            .init_account(&coins(100_000_000_000_000, "uosmo"))
-            .unwrap();
-        let addr = acc.address();
-
-        let msg = MsgCreateDenom {
-            sender: acc.address(),
-            subdenom: "newdenom".to_string(),
-        };
-
-        let res: ExecuteResponse<MsgCreateDenomResponse> =
-            app.execute(msg, MsgCreateDenom::TYPE_URL, &acc).unwrap();
-
-        let create_denom_attrs = &res
-            .events
-            .iter()
-            .find(|e| e.ty == "create_denom")
-            .unwrap()
-            .attributes;
-
-        assert_eq!(
-            create_denom_attrs,
-            &vec![
-                attr("creator", &addr),
-                attr(
-                    "new_token_denom",
-                    format!("factory/{}/{}", &addr, "newdenom")
-                )
-            ]
-        );
-
-        // execute on more time to excercise account sequence
-        let msg = MsgCreateDenom {
-            sender: acc.address(),
-            subdenom: "newerdenom".to_string(),
-        };
-
-        let res: ExecuteResponse<MsgCreateDenomResponse> =
-            app.execute(msg, MsgCreateDenom::TYPE_URL, &acc).unwrap();
-
-        let create_denom_attrs = &res
-            .events
-            .iter()
-            .find(|e| e.ty == "create_denom")
-            .unwrap()
-            .attributes;
-
-        // TODO: make assertion based on string representation
-        assert_eq!(
-            create_denom_attrs,
-            &vec![
-                attr("creator", &addr),
-                attr(
-                    "new_token_denom",
-                    format!("factory/{}/{}", &addr, "newerdenom")
-                )
-            ]
-        );
-    }
-
-    #[test]
-    fn test_query() {
-        let app = OsmosisTestApp::default();
-
-        let denom_creation_fee = app
-            .query::<QueryParamsRequest, QueryParamsResponse>(
-                "/osmosis.tokenfactory.v1beta1.Query/Params",
-                &QueryParamsRequest {},
-            )
-            .unwrap()
-            .params
-            .unwrap()
-            .denom_creation_fee;
-
-        // fee is no longer set
-        assert_eq!(denom_creation_fee, [])
-    }
-
-    #[test]
-    fn test_multiple_as_module() {
-        let app = OsmosisTestApp::default();
-        let alice = app
-            .init_account(&[
-                Coin::new(1_000_000_000_000, "uatom"),
-                Coin::new(1_000_000_000_000, "uosmo"),
-            ])
-            .unwrap();
-
-        let gamm = Gamm::new(&app);
-
-        let pool_liquidity = vec![Coin::new(1_000, "uatom"), Coin::new(1_000, "uosmo")];
-        let pool_id = gamm
-            .create_basic_pool(&pool_liquidity, &alice)
-            .unwrap()
-            .data
-            .pool_id;
-
-        let pool = gamm.query_pool(pool_id).unwrap();
-
-        assert_eq!(
-            pool_liquidity
-                .into_iter()
-                .map(|c| c.into())
-                .collect::<Vec<osmosis_std::types::cosmos::base::v1beta1::Coin>>(),
-            pool.pool_assets
-                .into_iter()
-                .map(|a| a.token.unwrap())
-                .collect::<Vec<osmosis_std::types::cosmos::base::v1beta1::Coin>>(),
-        );
-
-        let wasm = Wasm::new(&app);
-        let wasm_byte_code = std::fs::read("./test_artifacts/cw1_whitelist.wasm").unwrap();
-        let code_id = wasm
-            .store_code(&wasm_byte_code, None, &alice)
-            .unwrap()
-            .data
-            .code_id;
-
-        assert_eq!(code_id, 1);
-    }
-
-    #[test]
     fn test_wasm_execute_and_query() {
         use cw1_whitelist::msg::*;
 
-        let app = OsmosisTestApp::default();
+        let app = NeutronTestApp::default();
         let accs = app
             .init_accounts(
                 &[
@@ -407,7 +267,7 @@ mod tests {
 
     #[test]
     fn test_custom_fee() {
-        let app = OsmosisTestApp::default();
+        let app = NeutronTestApp::default();
         let initial_balance = 1_000_000_000_000;
         let alice = app.init_account(&coins(initial_balance, "uosmo")).unwrap();
         let bob = app.init_account(&coins(initial_balance, "uosmo")).unwrap();
@@ -445,129 +305,5 @@ mod tests {
 
         assert_eq!(res.gas_info.gas_wanted, gas_limit);
         assert_eq!(bob_balance, initial_balance - amount.amount.u128());
-    }
-
-    #[test]
-    fn test_param_set() {
-        let app = OsmosisTestApp::default();
-
-        let whitelisted_users = app
-            .init_accounts(&coins(1_000_000_000_000, "uosmo"), 2)
-            .unwrap();
-
-        let in_pset = lockup::Params {
-            force_unlock_allowed_addresses: whitelisted_users
-                .into_iter()
-                .map(|a| a.address())
-                .collect(),
-        };
-
-        app.set_param_set(
-            "lockup",
-            osmosis_std::shim::Any {
-                type_url: lockup::Params::TYPE_URL.to_string(),
-                value: in_pset.encode_to_vec(),
-            },
-        )
-        .unwrap();
-
-        let out_pset: lockup::Params = app
-            .get_param_set("lockup", lockup::Params::TYPE_URL)
-            .unwrap();
-
-        assert_eq!(in_pset, out_pset);
-    }
-
-    #[test]
-    fn test_set_param_set() {
-        let app = OsmosisTestApp::default();
-
-        let balances = vec![
-            Coin::new(1_000_000_000_000, "uosmo"),
-            Coin::new(1_000_000_000_000, "uion"),
-        ];
-        let whitelisted_user = app.init_account(&balances).unwrap();
-
-        // create pool
-        let gamm = Gamm::new(&app);
-        let pool_id = gamm
-            .create_basic_pool(
-                &[Coin::new(1_000_000, "uosmo"), Coin::new(1_000_000, "uion")],
-                &whitelisted_user,
-            )
-            .unwrap()
-            .data
-            .pool_id;
-
-        // query shares
-        let shares = app
-            .query::<QueryTotalSharesRequest, QueryAllBalancesResponse>(
-                "/osmosis.gamm.v1beta1.Query/TotalShares",
-                &QueryTotalSharesRequest { pool_id },
-            )
-            .unwrap()
-            .balances;
-
-        // lock all shares
-        app.execute::<_, MsgLockTokensResponse>(
-            MsgLockTokens {
-                owner: whitelisted_user.address(),
-                duration: Some(osmosis_std::shim::Duration {
-                    seconds: 1000000000,
-                    nanos: 0,
-                }),
-                coins: shares,
-            },
-            MsgLockTokens::TYPE_URL,
-            &whitelisted_user,
-        )
-        .unwrap();
-
-        // try to unlock
-        let err = app
-            .execute::<_, MsgForceUnlockResponse>(
-                MsgForceUnlock {
-                    owner: whitelisted_user.address(),
-                    id: pool_id,
-                    coins: vec![], // all
-                },
-                MsgForceUnlock::TYPE_URL,
-                &whitelisted_user,
-            )
-            .unwrap_err();
-
-        // should fail
-        assert_eq!(err,  RunnerError::ExecuteError {
-            msg: format!("failed to execute message; message index: 0: Sender ({}) not allowed to force unlock: unauthorized", whitelisted_user.address()),
-        });
-
-        // add whitelisted user to param set
-        app.set_param_set(
-            "lockup",
-            Any {
-                type_url: lockup::Params::TYPE_URL.to_string(),
-                value: lockup::Params {
-                    force_unlock_allowed_addresses: vec![whitelisted_user.address()],
-                }
-                .encode_to_vec(),
-            },
-        )
-        .unwrap();
-
-        // unlock again after adding whitelisted user
-        let res = app
-            .execute::<_, MsgForceUnlockResponse>(
-                MsgForceUnlock {
-                    owner: whitelisted_user.address(),
-                    id: pool_id,
-                    coins: vec![], // all
-                },
-                MsgForceUnlock::TYPE_URL,
-                &whitelisted_user,
-            )
-            .unwrap();
-
-        // should succeed
-        assert!(res.data.success);
     }
 }

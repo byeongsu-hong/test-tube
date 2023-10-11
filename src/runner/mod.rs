@@ -4,9 +4,7 @@ pub mod app;
 mod tests {
     use std::ffi::CString;
 
-    use crate::{Bank, Wasm};
-
-    use super::app::OsmosisTestApp;
+    use super::app::NeutronTestApp;
     use cosmwasm_std::{to_binary, BankMsg, Coin, CosmosMsg, Empty, Event, WasmMsg};
     use cw1_whitelist::msg::{ExecuteMsg, InstantiateMsg};
     use osmosis_std::types::cosmos::bank::v1beta1::{MsgSendResponse, QueryBalanceRequest};
@@ -21,11 +19,10 @@ mod tests {
     use osmosis_std::types::osmosis::tokenfactory::v1beta1::{
         MsgCreateDenom, MsgCreateDenomResponse,
     };
-    use test_tube::account::Account;
+
     use test_tube::runner::error::RunnerError::{ExecuteError, QueryError};
     use test_tube::runner::result::RawResult;
-    use test_tube::runner::Runner;
-    use test_tube::{Module, RunnerExecuteResult};
+    use test_tube::{Account, Bank, Module, Runner, RunnerExecuteResult, Wasm};
 
     #[derive(::prost::Message)]
     struct AdhocRandomQueryRequest {
@@ -41,7 +38,7 @@ mod tests {
 
     #[test]
     fn test_query_error_no_route() {
-        let app = OsmosisTestApp::default();
+        let app = NeutronTestApp::default();
         let res = app.query::<AdhocRandomQueryRequest, AdhocRandomQueryResponse>(
             "/osmosis.random.v1beta1.Query/AdhocRandom",
             &AdhocRandomQueryRequest { id: 1 },
@@ -58,7 +55,7 @@ mod tests {
 
     #[test]
     fn test_query_error_failed_query() {
-        let app = OsmosisTestApp::default();
+        let app = NeutronTestApp::default();
         let res = app.query::<PoolRequest, PoolResponse>(
             "/osmosis.poolmanager.v1beta1.Query/Pool",
             &PoolRequest { pool_id: 1 },
@@ -76,7 +73,7 @@ mod tests {
 
     #[test]
     fn test_execute_error() {
-        let app = OsmosisTestApp::default();
+        let app = NeutronTestApp::default();
         let signer = app.init_account(&[]).unwrap();
         let res: RunnerExecuteResult<MsgCreateBalancerPoolResponse> = app.execute(
             MsgCreateBalancerPool {
@@ -121,7 +118,7 @@ mod tests {
 
     #[test]
     fn test_execute_cosmos_msgs() {
-        let app = OsmosisTestApp::new();
+        let app = NeutronTestApp::new();
         let signer = app
             .init_account(&[Coin::new(1000000000000, "uosmo")])
             .unwrap();

@@ -4,22 +4,22 @@ use std::{env, path::PathBuf, process::Command};
 
 fn main() {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let prebuilt_lib_dir = manifest_dir.join("libosmosistesttube").join("artifacts");
+    let prebuilt_lib_dir = manifest_dir.join("libneutrontesttube").join("artifacts");
 
-    let lib_name = "osmosistesttube";
+    let lib_name = "neutrontesttube";
 
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
 
     let header = if std::env::var("DOCS_RS").is_ok() {
         manifest_dir
-            .join("libosmosistesttube")
+            .join("libneutrontesttube")
             .join("artifacts")
-            .join("libosmosistesttube.docrs.h")
+            .join("libneutrontesttube.docrs.h")
     } else {
         out_dir.join(format!("lib{}.h", lib_name))
     };
     // rerun when go code is updated
-    println!("cargo:rerun-if-changed=./libosmosistesttube");
+    println!("cargo:rerun-if-changed=./libneutrontesttube");
 
     let lib_filename = if cfg!(target_os = "macos") {
         format!("lib{}.{}", lib_name, "dylib")
@@ -35,23 +35,23 @@ fn main() {
     let lib_filename = lib_filename.as_str();
 
     if env::var("PREBUILD_LIB") == Ok("1".to_string()) {
-        build_libosmosistesttube(prebuilt_lib_dir.join(lib_filename));
+        build_libneutrontesttube(prebuilt_lib_dir.join(lib_filename));
     }
 
     let out_dir_lib_path = out_dir.join(lib_filename);
-    build_libosmosistesttube(out_dir_lib_path);
+    build_libneutrontesttube(out_dir_lib_path);
 
     // copy built lib to target dir if debug build
     if env::var("PROFILE").unwrap() == "debug" {
         let target_dir = out_dir.join("..").join("..").join("..").join("deps");
 
-        // for each file with pattern `libosmosistesttube.*`, copy to target dir
+        // for each file with pattern `libneutrontesttube.*`, copy to target dir
         for entry in std::fs::read_dir(out_dir.clone()).unwrap() {
             let entry = entry.unwrap();
             let path = entry.path();
             if path.is_file() {
                 let file_name = path.file_name().unwrap().to_str().unwrap();
-                if file_name.starts_with("libosmosistesttube") {
+                if file_name.starts_with("libneutrontesttube") {
                     let target_path = target_dir.join(file_name);
                     std::fs::copy(path, target_path).unwrap();
                 }
@@ -92,14 +92,14 @@ fn main() {
         .expect("Couldn't write bindings!");
 }
 
-fn build_libosmosistesttube(out: PathBuf) {
+fn build_libneutrontesttube(out: PathBuf) {
     // skip if doc_rs build
     if std::env::var("DOCS_RS").is_ok() {
         return;
     }
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let exit_status = Command::new("go")
-        .current_dir(manifest_dir.join("libosmosistesttube"))
+        .current_dir(manifest_dir.join("libneutrontesttube"))
         .arg("build")
         .arg("-buildmode=c-shared")
         .arg("-ldflags")

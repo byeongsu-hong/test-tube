@@ -13,7 +13,7 @@ import (
 
 	// helpers
 	_ "github.com/gogo/protobuf/gogoproto"
-	proto "github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/proto"
 	"github.com/pkg/errors"
 
 	// tendermint
@@ -21,7 +21,6 @@ import (
 	tmproto "github.com/tendermint/tendermint/proto/tendermint/types"
 
 	// cosmos sdk
-
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	"github.com/cosmos/cosmos-sdk/simapp"
@@ -32,10 +31,8 @@ import (
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 
 	// cosmwasm-testing
-	"github.com/osmosis-labs/test-tube/osmosis-test-tube/result"
-	"github.com/osmosis-labs/test-tube/osmosis-test-tube/testenv"
-	// osmosis
-	// lockuptypes "github.com/osmosis-labs/osmosis/v16/x/lockup/types"
+	"github.com/neutron-org/test-tube/neutron-test-tube/result"
+	"github.com/neutron-org/test-tube/neutron-test-tube/testenv"
 )
 
 var (
@@ -53,13 +50,13 @@ func InitTestEnv() uint64 {
 	envCounter += 1
 	id := envCounter
 
-	nodeHome, err := os.MkdirTemp("", ".osmosis-test-tube-temp-")
+	nodeHome, err := os.MkdirTemp("", ".neutron-test-tube-temp-")
 	if err != nil {
 		panic(err)
 	}
 
 	env := new(testenv.TestEnv)
-	env.App = testenv.SetupOsmosisApp(nodeHome)
+	env.App = testenv.SetupNeutronApp(nodeHome)
 	env.NodeHome = nodeHome
 	env.ParamTypesRegistry = *testenv.NewParamTypeRegistry()
 
@@ -68,7 +65,7 @@ func InitTestEnv() uint64 {
 	// Allow testing unoptimized contract
 	wasmtypes.MaxWasmSize = 1024 * 1024 * 1024 * 1024 * 1024
 
-	env.Ctx = env.App.BaseApp.NewContext(false, tmproto.Header{Height: 0, ChainID: "osmosis-1", Time: time.Now().UTC()})
+	env.Ctx = env.App.BaseApp.NewContext(false, tmproto.Header{Height: 0, ChainID: "neutron-1", Time: time.Now().UTC()})
 
 	env.BeginNewBlock(false, 5)
 
@@ -108,10 +105,12 @@ func InitAccount(envId uint64, coinsJson string) *C.char {
 		_, hasDenomMetaData := env.App.BankKeeper.GetDenomMetaData(env.Ctx, coin.Denom)
 		if !hasDenomMetaData {
 			denomMetaData := banktypes.Metadata{
-				DenomUnits: []*banktypes.DenomUnit{{
-					Denom:    coin.Denom,
-					Exponent: 0,
-				}},
+				DenomUnits: []*banktypes.DenomUnit{
+					{
+						Denom:    coin.Denom,
+						Exponent: 0,
+					},
+				},
 				Base: coin.Denom,
 			}
 
@@ -233,7 +232,7 @@ func AccountSequence(envId uint64, bech32Address string) uint64 {
 		panic(err)
 	}
 
-	seq, err := env.App.AppKeepers.AccountKeeper.GetSequence(env.Ctx, addr)
+	seq, err := env.App.AccountKeeper.GetSequence(env.Ctx, addr)
 
 	if err != nil {
 		panic(err)
@@ -252,7 +251,7 @@ func AccountNumber(envId uint64, bech32Address string) uint64 {
 		panic(err)
 	}
 
-	acc := env.App.AppKeepers.AccountKeeper.GetAccount(env.Ctx, addr)
+	acc := env.App.AccountKeeper.GetAccount(env.Ctx, addr)
 	return acc.GetAccountNumber()
 }
 
@@ -303,14 +302,13 @@ func SetParamSet(envId uint64, subspaceName, base64ParamSetBytes string) *C.char
 
 	pReg := env.ParamTypesRegistry
 
-	any := codectypes.Any{}
-	err = proto.Unmarshal(paramSetBytes, &any)
+	err = proto.Unmarshal(paramSetBytes, &codectypes.Any{})
 
 	if err != nil {
 		return encodeErrToResultBytes(result.ExecuteError, err)
 	}
 
-	pset, err := pReg.UnpackAny(&any)
+	pset, err := pReg.UnpackAny(&codectypes.Any{})
 
 	if err != nil {
 		return encodeErrToResultBytes(result.ExecuteError, err)
@@ -369,7 +367,7 @@ func GetValidatorPrivateKey(envId uint64, n int32) *C.char {
 
 func loadEnv(envId uint64) testenv.TestEnv {
 	item, ok := envRegister.Load(envId)
-	env := testenv.TestEnv(item.(testenv.TestEnv))
+	env := item.(testenv.TestEnv)
 	if !ok {
 		panic(fmt.Sprintf("env not found: %d", envId))
 	}
