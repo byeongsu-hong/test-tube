@@ -2,3 +2,6 @@
 	path = osmosis
 	url = https://github.com/osmosis-labs/osmosis.git
 	branch = main
+[submodule "neutron"]
+	path = neutron
+	url = https://github.com/neutron-org/neutron.git
