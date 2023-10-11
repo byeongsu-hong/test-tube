@@ -10,9 +10,9 @@ use test_tube::runner::result::{RunnerExecuteResult, RunnerResult};
 use test_tube::runner::Runner;
 use test_tube::BaseApp;
 
-const FEE_DENOM: &str = "uosmo";
-const OSMO_ADDRESS_PREFIX: &str = "osmo";
-const CHAIN_ID: &str = "osmosis-1";
+const FEE_DENOM: &str = "untrn";
+const NTRN_ADDRESS_PREFIX: &str = "neutron";
+const CHAIN_ID: &str = "neutron-1";
 const DEFAULT_GAS_ADJUSTMENT: f64 = 1.2;
 
 #[derive(Debug, PartialEq)]
@@ -32,7 +32,7 @@ impl NeutronTestApp {
             inner: BaseApp::new(
                 FEE_DENOM,
                 CHAIN_ID,
-                OSMO_ADDRESS_PREFIX,
+                NTRN_ADDRESS_PREFIX,
                 DEFAULT_GAS_ADJUSTMENT,
             ),
         }
